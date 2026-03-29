@@ -1,0 +1,30 @@
+[versions]
+kotlin    = "2.3.20"
+kensa     = "SNAPSHOT"
+http4k    = "6.23.1.0"
+jackson   = "2.21.0"
+kotest    = "6.1.6"
+junit5    = "6.0.3"
+
+[libraries]
+kensa-junit  = { module = "dev.kensa:kensa-framework-junit6", version.ref = "kensa" }
+kensa-kotest = { module = "dev.kensa:kensa-assertions-kotest", version.ref = "kensa" }
+
+http4k-core        = { module = "org.http4k:http4k-core",           version.ref = "http4k" }
+http4k-jackson     = { module = "org.http4k:http4k-format-jackson", version.ref = "http4k" }
+http4k-okhttp      = { module = "org.http4k:http4k-client-okhttp",  version.ref = "http4k" }
+
+jackson-kotlin   = { module = "com.fasterxml.jackson.module:jackson-module-kotlin",    version.ref = "jackson" }
+jackson-jsr310   = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+
+kotest-bom           = { module = "io.kotest:kotest-bom",                      version.ref = "kotest" }
+kotest-assertions    = { module = "io.kotest:kotest-assertions-core-jvm" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5-jvm" }
+
+junit5-bom    = { module = "org.junit:junit-bom",                    version.ref = "junit5" }
+junit5-api    = { module = "org.junit.jupiter:junit-jupiter-api" }
+junit5-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
+junit5-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

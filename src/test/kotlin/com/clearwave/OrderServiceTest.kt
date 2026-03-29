@@ -1,0 +1,207 @@
+package com.clearwave
+
+import com.clearwave.order.NotificationStatus
+import com.clearwave.order.OrderRequest
+import com.clearwave.order.OrderResponse
+import com.clearwave.order.SupplierNotification
+import com.clearwave.stubs.OrderScenario
+import com.clearwave.support.ClearwaveExtension.Companion.fibreVisionStub
+import com.clearwave.support.ClearwaveExtension.Companion.httpClient
+import com.clearwave.support.ClearwaveExtension.Companion.openNetworkStub
+import com.clearwave.support.ClearwaveExtension.Companion.orderService
+import com.clearwave.support.ClearwaveTest
+import com.clearwave.support.TelecomsCapturedOutputs.OrderConfirmation
+import com.clearwave.support.TelecomsFixtures.appointmentSlot
+import com.clearwave.support.TelecomsFixtures.broadbandProfile
+import com.clearwave.support.TelecomsFixtures.serviceAddress
+import com.clearwave.support.TelecomsFixtures.trackingId
+import com.clearwave.support.TelecomsFixtures.voiceProfile
+import com.clearwave.support.TelecomsParty
+import com.clearwave.support.TrackingId
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import dev.kensa.Action
+import dev.kensa.ActionContext
+import dev.kensa.GivensContext
+import dev.kensa.Notes
+import dev.kensa.StateCollector
+import dev.kensa.render.Language
+import dev.kensa.state.CapturedInteractionBuilder.Companion.from
+import dev.kensa.util.Attributes
+import io.kotest.matchers.Matcher
+import io.kotest.matchers.MatcherResult
+import org.http4k.core.Method.POST
+import org.http4k.core.Request
+import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.seconds
+
+@Notes("""
+**Order Service** orchestrates provisioning across two suppliers for a combined voice + broadband package.
+
+Notification lifecycle (per supplier):
+
+| Status | Meaning |
+|--------|---------|
+| `ACKNOWLEDGED` | Supplier has received and accepted the order |
+| `COMMITTED` | Resources reserved; engineer visit booked |
+| `DELAYED` | Engineer visit rescheduled |
+| `COMPLETED` | Service is live |
+| `REJECTED` | Order cannot be fulfilled |
+
+See [FeasibilityServiceTest](#FeasibilityServiceTest) for feasibility pre-checks.
+""")
+class OrderServiceTest : ClearwaveTest() {
+
+    private val mapper = jacksonObjectMapper().findAndRegisterModules()
+
+    @Test
+    fun `voice and broadband order is successfully completed`() {
+        given(openNetworkWillCompleteTheOrder())
+        and(fibreVisionWillCompleteTheOrder())
+
+        whenever(aVoiceAndBroadbandOrderIsPlaced())
+
+        then(theOrderConfirmation(), shouldBePending())
+        thenEventuallyAllNotifications(shouldShowBothSuppliersCompletedSuccessfully())
+    }
+
+    @Test
+    fun `order is delayed then completed`() {
+        given(openNetworkWillCompleteTheOrder())
+        and(fibreVisionWillDelayThenCompleteTheOrder())
+
+        whenever(aVoiceAndBroadbandOrderIsPlaced())
+
+        then(theOrderConfirmation(), shouldBePending())
+        thenEventuallyFibreVisionNotifications(shouldShowDelayedThenCompleted())
+    }
+
+    @Test
+    fun `order is rejected by fibre vision`() {
+        given(openNetworkWillCompleteTheOrder())
+        and(fibreVisionWillRejectTheOrder())
+
+        whenever(aVoiceAndBroadbandOrderIsPlaced())
+
+        then(theOrderConfirmation(), shouldBePending())
+        thenEventuallyFibreVisionNotifications(shouldBeRejected())
+    }
+
+    // --- Givens ---
+
+    private fun openNetworkWillCompleteTheOrder() = Action<GivensContext> { (fixtures) ->
+        openNetworkStub.primeOrder(fixtures[trackingId], OrderScenario.completed)
+    }
+
+    private fun fibreVisionWillCompleteTheOrder() = Action<GivensContext> { (fixtures) ->
+        fibreVisionStub.primeOrder(fixtures[trackingId], OrderScenario.completed)
+    }
+
+    private fun fibreVisionWillDelayThenCompleteTheOrder() = Action<GivensContext> { (fixtures) ->
+        fibreVisionStub.primeOrder(fixtures[trackingId], OrderScenario.delayed)
+    }
+
+    private fun fibreVisionWillRejectTheOrder() = Action<GivensContext> { (fixtures) ->
+        fibreVisionStub.primeOrder(fixtures[trackingId], OrderScenario.Rejected)
+    }
+
+    // --- Action ---
+
+    private fun aVoiceAndBroadbandOrderIsPlaced() = Action<ActionContext> { (fixtures, interactions) ->
+        val tid = fixtures[trackingId]
+        openNetworkStub.register(tid, interactions)
+        fibreVisionStub.register(tid, interactions)
+
+        val orderRequest = OrderRequest(
+            customerId              = "CUST-10042",
+            address                 = fixtures[serviceAddress],
+            voiceProfile            = fixtures[voiceProfile],
+            broadbandProfile        = fixtures[broadbandProfile],
+            appointmentSlot         = fixtures[appointmentSlot],
+            notificationCallbackUrl = "http://localhost:${orderService.port}/api/notifications/$tid",
+        )
+
+        val requestBody = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(orderRequest)
+        val httpRequest = Request(POST, "http://localhost:${orderService.port}/api/orders")
+            .header(TrackingId.HEADER, tid.toString())
+            .header("Content-Type", "application/json")
+            .body(requestBody)
+
+        interactions.capture(
+            from(TelecomsParty.Customer)
+                .to(TelecomsParty.OrderService)
+                .with(requestBody, "Place Order Request")
+                .with(Attributes.of("language", Language.Json))
+                .underTest(true)
+        )
+
+        val response = httpClient(httpRequest)
+        outputs[OrderConfirmation] = mapper.readValue<OrderResponse>(response.bodyString())
+
+        interactions.capture(
+            from(TelecomsParty.OrderService)
+                .to(TelecomsParty.Customer)
+                .with(response, "Order Confirmation — PENDING")
+        )
+
+        interactions.captureTimePassing("Awaiting supplier notifications")
+    }
+
+    // --- State Collectors and async helpers ---
+
+    private fun theOrderConfirmation() = StateCollector { outputs[OrderConfirmation] }
+
+    private fun allNotifications() = StateCollector {
+        orderService.notificationsFor(fixtures[trackingId].toString())
+    }
+
+    private fun fibreVisionNotifications() = StateCollector {
+        orderService.notificationsFor(fixtures[trackingId].toString())
+            .filter { it.supplier == "FibreVision" }
+    }
+
+    private fun thenEventuallyAllNotifications(matcher: Matcher<List<SupplierNotification>>) =
+        thenEventually(10.seconds, allNotifications(), matcher)
+
+    private fun thenEventuallyFibreVisionNotifications(matcher: Matcher<List<SupplierNotification>>) =
+        thenEventually(10.seconds, fibreVisionNotifications(), matcher)
+
+    // --- Assertions ---
+
+    private fun shouldBePending() = Matcher<OrderResponse> { result ->
+        MatcherResult(
+            result.status == "PENDING",
+            { "Expected order status PENDING but was ${result.status}" },
+            { "Expected order status not to be PENDING" }
+        )
+    }
+
+    private fun shouldShowBothSuppliersCompletedSuccessfully() = Matcher<List<SupplierNotification>> { notifications ->
+        val completedLifecycle = listOf(NotificationStatus.ACKNOWLEDGED, NotificationStatus.COMMITTED, NotificationStatus.COMPLETED)
+        val openNetworkStatuses = notifications.filter { it.supplier == "OpenNetwork" }.map { it.status }
+        val fibreVisionStatuses = notifications.filter { it.supplier == "FibreVision" }.map { it.status }
+        MatcherResult(
+            notifications.size == 6 && openNetworkStatuses == completedLifecycle && fibreVisionStatuses == completedLifecycle,
+            { "Expected both suppliers to complete: OpenNetwork=$openNetworkStatuses, FibreVision=$fibreVisionStatuses" },
+            { "Expected not both suppliers to complete" }
+        )
+    }
+
+    private fun shouldShowDelayedThenCompleted() = Matcher<List<SupplierNotification>> { notifications ->
+        val expected = listOf(NotificationStatus.ACKNOWLEDGED, NotificationStatus.COMMITTED, NotificationStatus.DELAYED, NotificationStatus.COMPLETED)
+        val actual = notifications.map { it.status }
+        MatcherResult(
+            actual == expected,
+            { "Expected ACKNOWLEDGED → COMMITTED → DELAYED → COMPLETED but got $actual" },
+            { "Expected not to show delayed-then-completed lifecycle" }
+        )
+    }
+
+    private fun shouldBeRejected() = Matcher<List<SupplierNotification>> { notifications ->
+        MatcherResult(
+            notifications.size == 1 && notifications.single().status == NotificationStatus.REJECTED,
+            { "Expected a single REJECTED notification but got $notifications" },
+            { "Expected not to be rejected" }
+        )
+    }
+}
