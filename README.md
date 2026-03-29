@@ -20,7 +20,7 @@ Tests are written using the Kensa Given-When-Then DSL with [http4k](https://http
 The report is written to `build/kensa-output`. Open `index.html` in a browser, or serve it with the Kensa CLI:
 
 ```bash
-kensa serve build/kensa-output
+kensa --dir build/kensa-output
 ```
 
 ## Purpose
