@@ -20,6 +20,8 @@ dependencies {
 
     testImplementation(libs.kensa.junit)
     testImplementation(libs.kensa.kotest)
+    testImplementation(libs.kensa.hamcrest)
+    testImplementation(libs.hamcrest)
     testImplementation(libs.http4k.okhttp)
     testImplementation(platform(libs.kotest.bom))
     testImplementation(libs.kotest.assertions)

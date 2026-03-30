@@ -24,6 +24,7 @@ class ClearwaveExtension : BeforeAllCallback, AutoCloseable {
 
     init {
         registerFixtures(TelecomsFixtures)
+        registerFixtures(JavaTelecomsFixtures::class.java)
         registerCapturedOutputs(TelecomsCapturedOutputs)
         konfigure {
             titleText           = "Clearwave Telecoms — Acceptance Tests"
@@ -70,21 +71,25 @@ class ClearwaveExtension : BeforeAllCallback, AutoCloseable {
         private val feasibilityPort    = FeasibilityService.findAvailablePort()
         private val orderServicePort   = OrderService.findAvailablePort()
 
-        val openNetworkStub   = OpenNetworkStub(openNetworkPort)
-        val fibreVisionStub   = FibreVisionStub(fibreVisionPort)
+        @JvmField val openNetworkStub   = OpenNetworkStub(openNetworkPort)
+        @JvmField val fibreVisionStub   = FibreVisionStub(fibreVisionPort)
 
-        val feasibilityService = FeasibilityService(
+        @JvmField val feasibilityService = FeasibilityService(
             port             = feasibilityPort,
             openNetworkUrl   = "http://localhost:$openNetworkPort",
             fibreVisionUrl   = "http://localhost:$fibreVisionPort",
         )
 
-        val orderService = OrderService(
+        @JvmField val orderService = OrderService(
             port             = orderServicePort,
             openNetworkUrl   = "http://localhost:$openNetworkPort",
             fibreVisionUrl   = "http://localhost:$fibreVisionPort",
         )
 
-        val httpClient = OkHttp()
+        @JvmField val httpClient = OkHttp()
+
+        /** Java-friendly factory: avoids `new Request(...)` on an abstract http4k type. */
+        @JvmStatic fun request(method: org.http4k.core.Method, url: String): org.http4k.core.Request =
+            org.http4k.core.Request(method, url)
     }
 }

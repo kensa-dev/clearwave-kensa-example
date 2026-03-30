@@ -1,11 +1,6 @@
 package com.clearwave
 
-import com.clearwave.order.NotificationStatus
-import com.clearwave.order.NotificationStatus.ACKNOWLEDGED
-import com.clearwave.order.NotificationStatus.COMMITTED
-import com.clearwave.order.NotificationStatus.COMPLETED
-import com.clearwave.order.NotificationStatus.DELAYED
-import com.clearwave.order.NotificationStatus.REJECTED
+import com.clearwave.order.NotificationStatus.*
 import com.clearwave.order.OrderRequest
 import com.clearwave.order.OrderResponse
 import com.clearwave.order.SupplierNotification
@@ -28,11 +23,7 @@ import com.clearwave.support.TelecomsParty
 import com.clearwave.support.TrackingId
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import dev.kensa.Action
-import dev.kensa.ActionContext
-import dev.kensa.GivensContext
-import dev.kensa.Notes
-import dev.kensa.StateCollector
+import dev.kensa.*
 import dev.kensa.render.Language
 import dev.kensa.state.CapturedInteractionBuilder.Companion.from
 import dev.kensa.util.Attributes
@@ -70,10 +61,12 @@ class OrderServiceTest : ClearwaveTest() {
         whenever(aVoiceAndBroadbandOrderIsPlaced())
 
         then(theOrderConfirmation(), shouldBePending())
-        thenEventuallyAllNotifications(shouldShowBothSuppliersCompletedSuccessfully(
-            voiceSupplier = fixtures[voiceSupplier],
-            broadbandSupplier = fixtures[broadbandSupplier],
-        ))
+        thenEventuallyAllNotifications(
+            shouldShowBothSuppliersCompletedSuccessfully(
+                voiceSupplier = fixtures[voiceSupplier],
+                broadbandSupplier = fixtures[broadbandSupplier],
+            )
+        )
     }
 
     @Test

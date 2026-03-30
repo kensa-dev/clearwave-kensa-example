@@ -7,8 +7,10 @@ kotest    = "6.1.6"
 junit5    = "6.0.3"
 
 [libraries]
-kensa-junit  = { module = "dev.kensa:kensa-framework-junit6", version.ref = "kensa" }
-kensa-kotest = { module = "dev.kensa:kensa-assertions-kotest", version.ref = "kensa" }
+kensa-junit    = { module = "dev.kensa:kensa-framework-junit6",    version.ref = "kensa" }
+kensa-kotest   = { module = "dev.kensa:kensa-assertions-kotest",   version.ref = "kensa" }
+kensa-hamcrest = { module = "dev.kensa:kensa-assertions-hamcrest", version.ref = "kensa" }
+hamcrest       = { module = "org.hamcrest:hamcrest",               version = "3.0" }
 
 http4k-core        = { module = "org.http4k:http4k-core",           version.ref = "http4k" }
 http4k-jackson     = { module = "org.http4k:http4k-format-jackson", version.ref = "http4k" }

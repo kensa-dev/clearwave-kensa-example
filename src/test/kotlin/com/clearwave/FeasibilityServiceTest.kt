@@ -178,7 +178,7 @@ class FeasibilityServiceTest : ClearwaveTest() {
             result.serviceable && result.profiles.size == profileCount
                 && result.profiles.first().downloadSpeed == fastestDownloadSpeed
                 && result.profiles.first().supplier == fastestSupplier,
-            { "Expected $profileCount profile(s), fastest ${fastestDownloadSpeed} Mbps from ${fastestSupplier}, got: ${result.profiles}" },
+            { "Expected $profileCount profile(s), fastest $fastestDownloadSpeed Mbps from ${fastestSupplier}, got: ${result.profiles}" },
             { "Expected not to be serviceable with those criteria" }
         )
     }
