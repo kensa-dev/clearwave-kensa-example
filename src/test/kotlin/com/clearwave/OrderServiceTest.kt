@@ -1,6 +1,11 @@
 package com.clearwave
 
 import com.clearwave.order.NotificationStatus
+import com.clearwave.order.NotificationStatus.ACKNOWLEDGED
+import com.clearwave.order.NotificationStatus.COMMITTED
+import com.clearwave.order.NotificationStatus.COMPLETED
+import com.clearwave.order.NotificationStatus.DELAYED
+import com.clearwave.order.NotificationStatus.REJECTED
 import com.clearwave.order.OrderRequest
 import com.clearwave.order.OrderResponse
 import com.clearwave.order.SupplierNotification
@@ -13,9 +18,12 @@ import com.clearwave.support.ClearwaveTest
 import com.clearwave.support.TelecomsCapturedOutputs.OrderConfirmation
 import com.clearwave.support.TelecomsFixtures.appointmentSlot
 import com.clearwave.support.TelecomsFixtures.broadbandProfile
+import com.clearwave.support.TelecomsFixtures.broadbandSupplier
+import com.clearwave.support.TelecomsFixtures.customerId
 import com.clearwave.support.TelecomsFixtures.serviceAddress
 import com.clearwave.support.TelecomsFixtures.trackingId
 import com.clearwave.support.TelecomsFixtures.voiceProfile
+import com.clearwave.support.TelecomsFixtures.voiceSupplier
 import com.clearwave.support.TelecomsParty
 import com.clearwave.support.TrackingId
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -62,7 +70,10 @@ class OrderServiceTest : ClearwaveTest() {
         whenever(aVoiceAndBroadbandOrderIsPlaced())
 
         then(theOrderConfirmation(), shouldBePending())
-        thenEventuallyAllNotifications(shouldShowBothSuppliersCompletedSuccessfully())
+        thenEventuallyAllNotifications(shouldShowBothSuppliersCompletedSuccessfully(
+            voiceSupplier = fixtures[voiceSupplier],
+            broadbandSupplier = fixtures[broadbandSupplier],
+        ))
     }
 
     @Test
@@ -73,7 +84,9 @@ class OrderServiceTest : ClearwaveTest() {
         whenever(aVoiceAndBroadbandOrderIsPlaced())
 
         then(theOrderConfirmation(), shouldBePending())
-        thenEventuallyFibreVisionNotifications(shouldShowDelayedThenCompleted())
+        thenEventuallyFibreVisionNotifications(shouldShowDelayedThenCompleted(
+            supplier = fixtures[broadbandSupplier],
+        ))
     }
 
     @Test
@@ -84,7 +97,9 @@ class OrderServiceTest : ClearwaveTest() {
         whenever(aVoiceAndBroadbandOrderIsPlaced())
 
         then(theOrderConfirmation(), shouldBePending())
-        thenEventuallyFibreVisionNotifications(shouldBeRejected())
+        thenEventuallyFibreVisionNotifications(shouldBeRejected(
+            supplier = fixtures[broadbandSupplier],
+        ))
     }
 
     // --- Givens ---
@@ -113,7 +128,7 @@ class OrderServiceTest : ClearwaveTest() {
         fibreVisionStub.register(tid, interactions)
 
         val orderRequest = OrderRequest(
-            customerId              = "CUST-10042",
+            customerId              = fixtures[customerId],
             address                 = fixtures[serviceAddress],
             voiceProfile            = fixtures[voiceProfile],
             broadbandProfile        = fixtures[broadbandProfile],
@@ -176,31 +191,34 @@ class OrderServiceTest : ClearwaveTest() {
         )
     }
 
-    private fun shouldShowBothSuppliersCompletedSuccessfully() = Matcher<List<SupplierNotification>> { notifications ->
-        val completedLifecycle = listOf(NotificationStatus.ACKNOWLEDGED, NotificationStatus.COMMITTED, NotificationStatus.COMPLETED)
-        val openNetworkStatuses = notifications.filter { it.supplier == "OpenNetwork" }.map { it.status }
-        val fibreVisionStatuses = notifications.filter { it.supplier == "FibreVision" }.map { it.status }
+    private fun shouldShowBothSuppliersCompletedSuccessfully(
+        voiceSupplier: String,
+        broadbandSupplier: String,
+    ) = Matcher<List<SupplierNotification>> { notifications ->
+        val completedLifecycle = listOf(ACKNOWLEDGED, COMMITTED, COMPLETED)
+        val voiceStatuses = notifications.filter { it.supplier == voiceSupplier }.map { it.status }
+        val broadbandStatuses = notifications.filter { it.supplier == broadbandSupplier }.map { it.status }
         MatcherResult(
-            notifications.size == 6 && openNetworkStatuses == completedLifecycle && fibreVisionStatuses == completedLifecycle,
-            { "Expected both suppliers to complete: OpenNetwork=$openNetworkStatuses, FibreVision=$fibreVisionStatuses" },
+            notifications.size == 6 && voiceStatuses == completedLifecycle && broadbandStatuses == completedLifecycle,
+            { "Expected both suppliers to complete: ${voiceSupplier}=$voiceStatuses, ${broadbandSupplier}=$broadbandStatuses" },
             { "Expected not both suppliers to complete" }
         )
     }
 
-    private fun shouldShowDelayedThenCompleted() = Matcher<List<SupplierNotification>> { notifications ->
-        val expected = listOf(NotificationStatus.ACKNOWLEDGED, NotificationStatus.COMMITTED, NotificationStatus.DELAYED, NotificationStatus.COMPLETED)
+    private fun shouldShowDelayedThenCompleted(supplier: String) = Matcher<List<SupplierNotification>> { notifications ->
+        val expected = listOf(ACKNOWLEDGED, COMMITTED, DELAYED, COMPLETED)
         val actual = notifications.map { it.status }
         MatcherResult(
             actual == expected,
-            { "Expected ACKNOWLEDGED → COMMITTED → DELAYED → COMPLETED but got $actual" },
+            { "Expected ${supplier} to show ACKNOWLEDGED → COMMITTED → DELAYED → COMPLETED but got $actual" },
             { "Expected not to show delayed-then-completed lifecycle" }
         )
     }
 
-    private fun shouldBeRejected() = Matcher<List<SupplierNotification>> { notifications ->
+    private fun shouldBeRejected(supplier: String) = Matcher<List<SupplierNotification>> { notifications ->
         MatcherResult(
-            notifications.size == 1 && notifications.single().status == NotificationStatus.REJECTED,
-            { "Expected a single REJECTED notification but got $notifications" },
+            notifications.size == 1 && notifications.single().status == REJECTED,
+            { "Expected a single REJECTED notification from ${supplier} but got $notifications" },
             { "Expected not to be rejected" }
         )
     }

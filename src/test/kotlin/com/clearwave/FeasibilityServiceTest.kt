@@ -10,8 +10,14 @@ import com.clearwave.support.ClearwaveExtension.Companion.httpClient
 import com.clearwave.support.ClearwaveExtension.Companion.openNetworkStub
 import com.clearwave.support.ClearwaveTest
 import com.clearwave.support.TelecomsCapturedOutputs.FeasibilityResult
+import com.clearwave.support.TelecomsFixtures.broadbandDownloadSpeed
+import com.clearwave.support.TelecomsFixtures.broadbandSupplier
+import com.clearwave.support.TelecomsFixtures.broadbandUploadSpeed
 import com.clearwave.support.TelecomsFixtures.serviceAddress
 import com.clearwave.support.TelecomsFixtures.trackingId
+import com.clearwave.support.TelecomsFixtures.voiceDownloadSpeed
+import com.clearwave.support.TelecomsFixtures.voiceSupplier
+import com.clearwave.support.TelecomsFixtures.voiceUploadSpeed
 import com.clearwave.support.TelecomsParty
 import com.clearwave.support.TrackingId
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -28,7 +34,6 @@ import io.kotest.matchers.Matcher
 import io.kotest.matchers.MatcherResult
 import org.http4k.core.Method.POST
 import org.http4k.core.Request
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 @Notes("""
@@ -49,7 +54,11 @@ class FeasibilityServiceTest : ClearwaveTest() {
 
         whenever(aFeasibilityCheckIsRequestedForTheServiceAddress())
 
-        then(theFeasibilityResult(), shouldBeServiceableWithThreeProfilesFastestFirst())
+        then(theFeasibilityResult(), shouldReturnServiceableResultWith(
+            profileCount = 3,
+            fastestDownloadSpeed = fixtures[voiceDownloadSpeed],
+            fastestSupplier = fixtures[voiceSupplier],
+        ))
     }
 
     @Test
@@ -59,7 +68,11 @@ class FeasibilityServiceTest : ClearwaveTest() {
 
         whenever(aFeasibilityCheckIsRequestedForTheServiceAddress())
 
-        then(theFeasibilityResult(), shouldBeServiceableFromFibreVisionOnly())
+        then(theFeasibilityResult(), shouldReturnServiceableResultWith(
+            profileCount = 1,
+            fastestDownloadSpeed = fixtures[broadbandDownloadSpeed],
+            fastestSupplier = fixtures[broadbandSupplier],
+        ))
     }
 
     @Test
@@ -79,15 +92,24 @@ class FeasibilityServiceTest : ClearwaveTest() {
 
         whenever(aFeasibilityCheckIsRequestedForTheServiceAddress())
 
-        then(theFeasibilityResult(), shouldBeServiceableFromFibreVisionOnly())
+        then(theFeasibilityResult(), shouldReturnServiceableResultWith(
+            profileCount = 1,
+            fastestDownloadSpeed = fixtures[broadbandDownloadSpeed],
+            fastestSupplier = fixtures[broadbandSupplier],
+        ))
     }
 
     // --- Givens ---
 
     private fun bothSuppliersAreServiceable() = Action<GivensContext> { (fixtures) ->
         val tid = fixtures[trackingId]
-        openNetworkStub.primeFeasibility(tid, FeasibilityScenario.Serviceable(openNetworkProfiles()))
-        fibreVisionStub.primeFeasibility(tid, FeasibilityScenario.Serviceable(fibreVisionProfiles()))
+        openNetworkStub.primeFeasibility(tid, FeasibilityScenario.Serviceable(listOf(
+            LineProfile("FTTP", fixtures[voiceDownloadSpeed], fixtures[voiceUploadSpeed], "Full Fibre 900", fixtures[voiceSupplier]),
+            LineProfile("FTTP", 500, 75, "Full Fibre 500", fixtures[voiceSupplier]),
+        )))
+        fibreVisionStub.primeFeasibility(tid, FeasibilityScenario.Serviceable(listOf(
+            LineProfile("FTTC", fixtures[broadbandDownloadSpeed], fixtures[broadbandUploadSpeed], "Superfast 80", fixtures[broadbandSupplier]),
+        )))
     }
 
     private fun openNetworkHasNoCoverage() = Action<GivensContext> { (fixtures) ->
@@ -95,7 +117,9 @@ class FeasibilityServiceTest : ClearwaveTest() {
     }
 
     private fun fibreVisionIsServiceable() = Action<GivensContext> { (fixtures) ->
-        fibreVisionStub.primeFeasibility(fixtures[trackingId], FeasibilityScenario.Serviceable(fibreVisionProfiles()))
+        fibreVisionStub.primeFeasibility(fixtures[trackingId], FeasibilityScenario.Serviceable(listOf(
+            LineProfile("FTTC", fixtures[broadbandDownloadSpeed], fixtures[broadbandUploadSpeed], "Superfast 80", fixtures[broadbandSupplier]),
+        )))
     }
 
     private fun fibreVisionHasNoCoverage() = Action<GivensContext> { (fixtures) ->
@@ -145,19 +169,17 @@ class FeasibilityServiceTest : ClearwaveTest() {
 
     // --- Assertions ---
 
-    private fun shouldBeServiceableWithThreeProfilesFastestFirst() = Matcher<FeasibilityResponse> { result ->
+    private fun shouldReturnServiceableResultWith(
+        profileCount: Int,
+        fastestDownloadSpeed: Int,
+        fastestSupplier: String,
+    ) = Matcher<FeasibilityResponse> { result ->
         MatcherResult(
-            result.serviceable && result.profiles.size == 3 && result.profiles.first().downloadSpeed == 900,
-            { "Expected serviceable with 3 profiles sorted fastest-first (900 Mbps), got: ${result.profiles}" },
-            { "Expected not to be serviceable with three profiles" }
-        )
-    }
-
-    private fun shouldBeServiceableFromFibreVisionOnly() = Matcher<FeasibilityResponse> { result ->
-        MatcherResult(
-            result.serviceable && result.profiles.size == 1 && result.profiles.single().supplier == "FibreVision",
-            { "Expected serviceable with one FibreVision profile, got: ${result.profiles}" },
-            { "Expected not to be solely serviceable from FibreVision" }
+            result.serviceable && result.profiles.size == profileCount
+                && result.profiles.first().downloadSpeed == fastestDownloadSpeed
+                && result.profiles.first().supplier == fastestSupplier,
+            { "Expected $profileCount profile(s), fastest ${fastestDownloadSpeed} Mbps from ${fastestSupplier}, got: ${result.profiles}" },
+            { "Expected not to be serviceable with those criteria" }
         )
     }
 
@@ -168,15 +190,4 @@ class FeasibilityServiceTest : ClearwaveTest() {
             { "Expected to be not serviceable" }
         )
     }
-
-    // --- Test data ---
-
-    private fun openNetworkProfiles() = listOf(
-        LineProfile("FTTP", 900, 110, "Full Fibre 900", "OpenNetwork"),
-        LineProfile("FTTP", 500, 75,  "Full Fibre 500", "OpenNetwork"),
-    )
-
-    private fun fibreVisionProfiles() = listOf(
-        LineProfile("FTTC", 80, 20, "Superfast 80", "FibreVision"),
-    )
 }

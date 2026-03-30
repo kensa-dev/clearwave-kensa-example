@@ -4,6 +4,8 @@ import com.clearwave.domain.AppointmentSlot
 import com.clearwave.domain.LineProfile
 import com.clearwave.domain.ServiceAddress
 import dev.kensa.fixture.FixtureContainer
+import dev.kensa.fixture.Parents
+import dev.kensa.fixture.SecondaryFixture
 import dev.kensa.fixture.fixture
 import java.time.LocalDate
 
@@ -12,46 +14,56 @@ object TelecomsFixtures : FixtureContainer {
     /** Unique correlation token for each test invocation. */
     val trackingId = fixture("Tracking Id", highlighted = true) { TrackingId() }
 
-    /** The customer's postcode — used as the key for feasibility enquiries. */
-    val postcode = fixture("Postcode") { "SW1A 2AA" }
+    // --- Customer ---
 
-    /** Full service installation address derived from the postcode. */
-    val serviceAddress = fixture("Service Address", postcode) { pc ->
-        ServiceAddress(
-            postcode     = pc,
-            addressLine1 = "1 Parliament Square",
-            town         = "Westminster",
-            county       = "London",
-        )
+    val customerId = fixture("Customer Id") { "CUST-10042" }
+
+    // --- Address ---
+
+    val postcode     = fixture("Postcode")       { "SW1A 2AA" }
+    val addressLine1 = fixture("Address Line 1") { "1 Parliament Square" }
+    val town         = fixture("Town")           { "Westminster" }
+    val county       = fixture("County")         { "London" }
+
+    val serviceAddress: SecondaryFixture<ServiceAddress> = SecondaryFixture(
+        "Service Address",
+        { fixtures ->
+            ServiceAddress(
+                postcode     = fixtures[postcode],
+                addressLine1 = fixtures[addressLine1],
+                town         = fixtures[town],
+                county       = fixtures[county],
+            )
+        },
+        Parents.Three(postcode, addressLine1, town)
+    )
+
+    // --- Voice profile (OpenNetwork FTTP) ---
+
+    val voiceSupplier      = fixture("Voice Supplier")       { "OpenNetwork" }
+    val voiceDownloadSpeed = fixture("Voice Download Speed") { 900 }
+    val voiceUploadSpeed   = fixture("Voice Upload Speed")   { 110 }
+
+    val voiceProfile = fixture("Voice Profile", voiceDownloadSpeed, voiceUploadSpeed, voiceSupplier) { dl, ul, sup ->
+        LineProfile(type = "FTTP", downloadSpeed = dl, uploadSpeed = ul, description = "Full Fibre 900 with Voice", supplier = sup)
     }
 
-    /** Voice (PSTN) profile available via OpenNetwork. */
-    val voiceProfile = fixture("Voice Profile") {
-        LineProfile(
-            type          = "FTTP",
-            downloadSpeed = 900,
-            uploadSpeed   = 110,
-            description   = "Full Fibre 900 with Voice",
-            supplier      = "OpenNetwork",
-        )
+    // --- Broadband profile (FibreVision FTTC) ---
+
+    val broadbandSupplier      = fixture("Broadband Supplier")       { "FibreVision" }
+    val broadbandDownloadSpeed = fixture("Broadband Download Speed") { 80 }
+    val broadbandUploadSpeed   = fixture("Broadband Upload Speed")   { 20 }
+
+    val broadbandProfile = fixture("Broadband Profile", broadbandDownloadSpeed, broadbandUploadSpeed, broadbandSupplier) { dl, ul, sup ->
+        LineProfile(type = "FTTC", downloadSpeed = dl, uploadSpeed = ul, description = "Superfast 80", supplier = sup)
     }
 
-    /** Broadband profile available via FibreVision. */
-    val broadbandProfile = fixture("Broadband Profile") {
-        LineProfile(
-            type          = "FTTC",
-            downloadSpeed = 80,
-            uploadSpeed   = 20,
-            description   = "Superfast 80",
-            supplier      = "FibreVision",
-        )
-    }
+    // --- Appointment ---
 
-    /** Engineer visit slot for FTTP installations requiring physical work. */
-    val appointmentSlot = fixture("Appointment Slot") {
-        AppointmentSlot(
-            date     = LocalDate.now().plusDays(7),
-            timeSlot = "AM",
-        )
+    val appointmentDate     = fixture("Appointment Date")      { LocalDate.now().plusDays(7) }
+    val appointmentTimeSlot = fixture("Appointment Time Slot") { "AM" }
+
+    val appointmentSlot = fixture("Appointment Slot", appointmentDate, appointmentTimeSlot) { date, slot ->
+        AppointmentSlot(date = date, timeSlot = slot)
     }
 }
