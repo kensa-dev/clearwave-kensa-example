@@ -41,6 +41,7 @@ class ClearwaveExtension : BeforeAllCallback, AutoCloseable {
                 of("PSTN", "Public Switched Telephone Network"),
             )
             withRenderers {
+                interactionRenderer(RequestRenderer)
                 interactionRenderer(ResponseRenderer)
             }
         }
@@ -48,7 +49,7 @@ class ClearwaveExtension : BeforeAllCallback, AutoCloseable {
 
     override fun beforeAll(context: ExtensionContext) {
         val rootStore = context.root.getStore(ExtensionContext.Namespace.GLOBAL)
-        rootStore.getOrComputeIfAbsent("CLEARWAVE_SERVERS") {
+        rootStore.computeIfAbsent("CLEARWAVE_SERVERS") {
             openNetworkStub.start()
             fibreVisionStub.start()
             feasibilityService.start()

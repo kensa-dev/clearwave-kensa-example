@@ -2,10 +2,8 @@ package com.clearwave.stubs
 
 import com.clearwave.support.TelecomsParty
 import com.clearwave.support.TrackingId
-import dev.kensa.render.Language
 import dev.kensa.state.CapturedInteractionBuilder.Companion.from
 import dev.kensa.state.CapturedInteractions
-import dev.kensa.util.Attributes
 import org.http4k.client.JavaHttpClient
 import org.http4k.core.Method.POST
 import org.http4k.core.Request
@@ -84,8 +82,7 @@ class FibreVisionStub(val port: Int = findAvailablePort()) : AutoCloseable {
         interactions.capture(
             from(TelecomsParty.FeasibilityService)
                 .to(TelecomsParty.FibreVision)
-                .with(requestBody, "Feasibility Enquiry Request")
-                .with(Attributes.of("language", Language.Xml))
+                .with(request, "Feasibility Enquiry Request")
         )
 
         val scenario = feasibilityScenarios[tid] ?: return Response(INTERNAL_SERVER_ERROR)
@@ -95,8 +92,7 @@ class FibreVisionStub(val port: Int = findAvailablePort()) : AutoCloseable {
         interactions.capture(
             from(TelecomsParty.FibreVision)
                 .to(TelecomsParty.FeasibilityService)
-                .with(responseBody, "Feasibility Enquiry Response")
-                .with(Attributes.of("language", Language.Xml))
+                .with(response, "Feasibility Enquiry Response")
         )
 
         return response
@@ -146,8 +142,7 @@ $profilesXml
         interactions.capture(
             from(TelecomsParty.OrderService)
                 .to(TelecomsParty.FibreVision)
-                .with(requestBody, "Place Order Request")
-                .with(Attributes.of("language", Language.Xml))
+                .with(request, "Place Order Request")
         )
 
         val scenario = orderScenarios[tid] ?: return Response(INTERNAL_SERVER_ERROR)
@@ -158,12 +153,12 @@ $profilesXml
     <OrderRef>$orderRef</OrderRef>
     <Status>PENDING</Status>
 </OrderResponse>"""
+        val response = Response(OK).header("Content-Type", "application/xml").body(responseBody)
         orderResponses[tid] = responseBody
         interactions.capture(
             from(TelecomsParty.FibreVision)
                 .to(TelecomsParty.OrderService)
-                .with(responseBody, "Order Accepted — Pending")
-                .with(Attributes.of("language", Language.Xml))
+                .with(response, "Order Accepted — Pending")
         )
 
         val callbackUrl = requestBody.extractXml("NotificationCallbackUrl")
@@ -171,7 +166,7 @@ $profilesXml
             fireNotificationsAsync(orderRef, tid, callbackUrl, scenario, interactions)
         }
 
-        return Response(OK).header("Content-Type", "application/xml").body(responseBody)
+        return response
     }
 
     private fun fireNotificationsAsync(
@@ -194,19 +189,17 @@ $profilesXml
     <OrderRef>$orderRef</OrderRef>
     <Status>$status</Status>
 </OrderNotification>"""
+                val notification = Request(POST, callbackUrl)
+                    .header(TrackingId.HEADER, tid)
+                    .header("Content-Type", "application/xml")
+                    .body(body)
                 interactions.capture(
                     from(TelecomsParty.FibreVision)
                         .to(TelecomsParty.OrderService)
-                        .with(body, "Order Notification — $status")
-                        .with(Attributes.of("language", Language.Xml))
+                        .with(notification, "Order Notification — $status")
                 )
                 try {
-                    httpClient(
-                        Request(POST, callbackUrl)
-                            .header(TrackingId.HEADER, tid)
-                            .header("Content-Type", "application/xml")
-                            .body(body)
-                    )
+                    httpClient(notification)
                 } catch (_: Exception) { /* test torn down */ }
             }
         }

@@ -8,10 +8,8 @@ import com.clearwave.support.TelecomsParty
 import com.clearwave.support.TrackingId
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import dev.kensa.render.Language
 import dev.kensa.state.CapturedInteractionBuilder.Companion.from
 import dev.kensa.state.CapturedInteractions
-import dev.kensa.util.Attributes
 import org.http4k.client.JavaHttpClient
 import org.http4k.core.Method.POST
 import org.http4k.core.Request
@@ -99,8 +97,7 @@ class OpenNetworkStub(val port: Int = findAvailablePort()) : AutoCloseable {
         interactions.capture(
             from(TelecomsParty.FeasibilityService)
                 .to(TelecomsParty.OpenNetwork)
-                .with(requestBody, "Feasibility Check Request")
-                .with(Attributes.of("language", Language.Json))
+                .with(request, "Feasibility Check Request")
         )
 
         val scenario = feasibilityScenarios[tid] ?: return Response(INTERNAL_SERVER_ERROR)
@@ -110,8 +107,7 @@ class OpenNetworkStub(val port: Int = findAvailablePort()) : AutoCloseable {
         interactions.capture(
             from(TelecomsParty.OpenNetwork)
                 .to(TelecomsParty.FeasibilityService)
-                .with(responseBody, "Feasibility Check Response")
-                .with(Attributes.of("language", Language.Json))
+                .with(response, "Feasibility Check Response")
         )
 
         return response
@@ -151,8 +147,7 @@ class OpenNetworkStub(val port: Int = findAvailablePort()) : AutoCloseable {
         interactions.capture(
             from(TelecomsParty.OrderService)
                 .to(TelecomsParty.OpenNetwork)
-                .with(requestBody, "Place Order Request")
-                .with(Attributes.of("language", Language.Json))
+                .with(request, "Place Order Request")
         )
 
         val scenario = orderScenarios[tid] ?: return Response(INTERNAL_SERVER_ERROR)
@@ -161,12 +156,12 @@ class OpenNetworkStub(val port: Int = findAvailablePort()) : AutoCloseable {
         val responseBody = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(
             OpenNetworkOrderResponse(orderRef = orderRef, status = "PENDING")
         )
+        val response = Response(OK).header("Content-Type", "application/json").body(responseBody)
         orderResponses[tid] = responseBody
         interactions.capture(
             from(TelecomsParty.OpenNetwork)
                 .to(TelecomsParty.OrderService)
-                .with(responseBody, "Order Accepted — Pending")
-                .with(Attributes.of("language", Language.Json))
+                .with(response, "Order Accepted — Pending")
         )
 
         // Extract callback URL and fire async notifications on a background thread
@@ -178,7 +173,7 @@ class OpenNetworkStub(val port: Int = findAvailablePort()) : AutoCloseable {
             fireNotificationsAsync(orderRef, tid, callbackUrl, scenario, interactions)
         }
 
-        return Response(OK).header("Content-Type", "application/json").body(responseBody)
+        return response
     }
 
     private fun fireNotificationsAsync(
@@ -200,19 +195,17 @@ class OpenNetworkStub(val port: Int = findAvailablePort()) : AutoCloseable {
                 val body = mapper.writeValueAsString(
                     OpenNetworkNotification(orderRef = orderRef, status = status)
                 )
+                val notification = Request(POST, callbackUrl)
+                    .header(TrackingId.HEADER, tid)
+                    .header("Content-Type", "application/json")
+                    .body(body)
                 interactions.capture(
                     from(TelecomsParty.OpenNetwork)
                         .to(TelecomsParty.OrderService)
-                        .with(body, "Order Notification — $status")
-                        .with(Attributes.of("language", Language.Json))
+                        .with(notification, "Order Notification — $status")
                 )
                 try {
-                    httpClient(
-                        Request(POST, callbackUrl)
-                            .header(TrackingId.HEADER, tid)
-                            .header("Content-Type", "application/json")
-                            .body(body)
-                    )
+                    httpClient(notification)
                 } catch (_: Exception) { /* test torn down */ }
             }
         }
