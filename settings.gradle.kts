@@ -1,1 +1,1 @@
-rootProject.name = "clearwave-kensa-example"
+rootProject.name = "clearwave-example"

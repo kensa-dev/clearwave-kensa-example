@@ -7,7 +7,6 @@ import com.clearwave.stubs.OpenNetworkStub
 import dev.kensa.Kensa.konfigure
 import dev.kensa.PackageDisplay
 import dev.kensa.Tab
-import dev.kensa.UiMode
 import dev.kensa.fixture.FixtureRegistry.registerFixtures
 import dev.kensa.junit.KensaExtension
 import dev.kensa.outputs.CapturedOutputsRegistry.registerCapturedOutputs
@@ -28,7 +27,6 @@ class ClearwaveExtension : BeforeAllCallback, AutoCloseable {
         registerCapturedOutputs(TelecomsCapturedOutputs)
         konfigure {
             titleText           = "Clearwave Telecoms — Acceptance Tests"
-            uiMode              = UiMode.Modern
             outputDir           = Path("${System.getProperty("user.dir")}/build/kensa-output")
             packageDisplay      = PackageDisplay.HideCommonPackages
             packageDisplayRoot  = "com.clearwave"

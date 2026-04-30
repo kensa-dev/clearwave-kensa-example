@@ -3,3 +3,6 @@ build/
 .idea/
 *.iml
 local.properties
+
+ui/node_modules/
+ui/dist/

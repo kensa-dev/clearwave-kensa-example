@@ -2,6 +2,7 @@ package com.clearwave.stubs
 
 import com.clearwave.support.TrackingId
 import dev.kensa.state.CapturedInteractions
+import dev.kensa.state.SetupStrategy
 import org.http4k.core.Request
 import java.util.concurrent.ConcurrentHashMap
 
@@ -28,7 +29,6 @@ class TrackingRegistry {
     fun forRequest(request: Request): CapturedInteractions {
         val id = request.header(TrackingId.HEADER)
             ?: error("Stub received request without ${TrackingId.HEADER} header")
-        return map[id]
-            ?: error("No CapturedInteractions registered for tracking id $id")
+        return map[id] ?: CapturedInteractions(SetupStrategy.Ignored)
     }
 }
