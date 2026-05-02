@@ -138,6 +138,7 @@ val installPlaywrightBrowsers by tasks.registering(JavaExec::class) {
 
 tasks.test {
     useJUnitPlatform()
+    dependsOn(uiBuild)
     jvmArgs(
         "-Ddev.kensa.output.root=${layout.buildDirectory.get()}/kensa-output"
     )
