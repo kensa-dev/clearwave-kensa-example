@@ -2,23 +2,19 @@ package com.clearwave.ui
 
 import com.clearwave.domain.LineProfile
 import com.clearwave.stubs.FeasibilityScenario
+import com.clearwave.ui.ClearwaveUiExtension.Companion.web
 import dev.kensa.Action
 import dev.kensa.ActionContext
 import dev.kensa.GivensContext
-import dev.kensa.Kensa
 import dev.kensa.StateCollector
 import dev.kensa.kotest.WithKotest
 import dev.kensa.playwright.PlaywrightBrowserDriver
 import dev.kensa.playwright.junit.KensaPlaywrightUiTest
-import dev.kensa.uitesting.uiTesting
 import io.kotest.matchers.Matcher
 import io.kotest.matchers.MatcherResult
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import kotlin.io.path.Path
 
-class FeasibilityUiPlaywrightTest : KensaPlaywrightUiTest<FeasibilityUserPlaywright>(), WithKotest {
+class FeasibilityUiPlaywrightTest : ClearwaveUiTest, KensaPlaywrightUiTest<FeasibilityUserPlaywright>(), WithKotest {
 
     override fun createUser(driver: PlaywrightBrowserDriver): FeasibilityUserPlaywright =
         FeasibilityUserPlaywright(driver, web.webUrl)
@@ -106,27 +102,5 @@ class FeasibilityUiPlaywrightTest : KensaPlaywrightUiTest<FeasibilityUserPlaywri
             { "Expected element to be displayed but it was not" },
             { "Expected element not to be displayed but it was" }
         )
-    }
-
-    companion object {
-        lateinit var web: WebFixture
-            private set
-
-        @JvmStatic
-        @BeforeAll
-        fun startKensaAndWeb() {
-            Kensa.konfigure {
-                outputDir = Path("${System.getProperty("user.dir")}/build/kensa-output-ui")
-                sourceLocations = listOf(Path("src/uiTest/kotlin"))
-                uiTesting.autoScreenshotOnFailure = true
-            }
-            web = WebFixture()
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopWeb() {
-            web.close()
-        }
     }
 }

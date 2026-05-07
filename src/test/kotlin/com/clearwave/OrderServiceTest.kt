@@ -1,5 +1,6 @@
 package com.clearwave
 
+import com.clearwave.order.NotificationStatus
 import com.clearwave.order.NotificationStatus.*
 import com.clearwave.order.OrderRequest
 import com.clearwave.order.OrderResponse
@@ -77,8 +78,9 @@ class OrderServiceTest : ClearwaveTest() {
         whenever(aVoiceAndBroadbandOrderIsPlaced())
 
         then(theOrderConfirmation(), shouldBePending())
-        thenEventuallyFibreVisionNotifications(shouldShowDelayedThenCompleted(
+        thenEventuallyFibreVisionNotifications(shouldShowLifecycle(
             supplier = fixtures[broadbandSupplier],
+            lifecycle = theDelayedLifecycle(),
         ))
     }
 
@@ -198,13 +200,19 @@ class OrderServiceTest : ClearwaveTest() {
         )
     }
 
-    private fun shouldShowDelayedThenCompleted(supplier: String) = Matcher<List<SupplierNotification>> { notifications ->
-        val expected = listOf(ACKNOWLEDGED, COMMITTED, DELAYED, COMPLETED)
+    @ExpandableRenderedValue
+    private fun theDelayedLifecycle(): List<NotificationStatus> =
+        listOf(ACKNOWLEDGED, COMMITTED, DELAYED, COMPLETED)
+
+    private fun shouldShowLifecycle(
+        supplier: String,
+        lifecycle: List<NotificationStatus>,
+    ) = Matcher<List<SupplierNotification>> { notifications ->
         val actual = notifications.map { it.status }
         MatcherResult(
-            actual == expected,
-            { "Expected ${supplier} to show ACKNOWLEDGED → COMMITTED → DELAYED → COMPLETED but got $actual" },
-            { "Expected not to show delayed-then-completed lifecycle" }
+            actual == lifecycle,
+            { "Expected $supplier to show ${lifecycle.joinToString(" → ")} but got $actual" },
+            { "Expected not to show $lifecycle lifecycle" }
         )
     }
 

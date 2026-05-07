@@ -27,7 +27,6 @@ class ClearwaveExtension : BeforeAllCallback, AutoCloseable {
         registerCapturedOutputs(TelecomsCapturedOutputs)
         konfigure {
             titleText           = "Clearwave Telecoms — Acceptance Tests"
-            outputDir           = Path("${System.getProperty("user.dir")}/build/kensa-output")
             packageDisplay      = PackageDisplay.HideCommonPackages
             packageDisplayRoot  = "com.clearwave"
             autoOpenTab         = Tab.SequenceDiagram

@@ -2,6 +2,12 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kensa.gradle)
+}
+
+kensa {
+    sourceSets = setOf("uiTest", "test")
+    site = true
 }
 
 group = "com.clearwave"
@@ -119,12 +125,9 @@ val uiTest by tasks.registering(Test::class) {
     classpath = sourceSets["uiTest"].runtimeClasspath
 
     useJUnitPlatform()
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Djava.awt.headless=true") })
 
     dependsOn(uiBuild)
-
-    jvmArgs(
-        "-Ddev.kensa.output.root=${layout.buildDirectory.get()}/kensa-output-ui"
-    )
 }
 
 val installPlaywrightBrowsers by tasks.registering(JavaExec::class) {
@@ -138,8 +141,6 @@ val installPlaywrightBrowsers by tasks.registering(JavaExec::class) {
 
 tasks.test {
     useJUnitPlatform()
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Djava.awt.headless=true") })
     dependsOn(uiBuild)
-    jvmArgs(
-        "-Ddev.kensa.output.root=${layout.buildDirectory.get()}/kensa-output"
-    )
 }

@@ -29,11 +29,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ui/package-lock.json
 
-      - name: Build and run tests
-        run: ./gradlew test
+      - name: Install Playwright browsers
+        run: ./gradlew installPlaywrightBrowsers
+
+      - name: Run tests and assemble Kensa site
+        run: ./gradlew test uiTest assembleKensaSite
 
       - name: Deploy report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/kensa-output
+          publish_dir: ./build/kensa-site
