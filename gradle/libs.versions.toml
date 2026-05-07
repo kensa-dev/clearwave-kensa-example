@@ -38,4 +38,4 @@ junit5-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-kensa-gradle = { id = "dev.kensa.gradle-plugin", version = "SNAPSHOT" }
+kensa-gradle = { id = "dev.kensa.gradle-plugin", version.ref = "kensa" }
